@@ -60,17 +60,45 @@ jobs:
     - name: Download package
       run: |
         echo -e "$(nproc) thread build."
-        cd lede && make download -j$(nproc)
+        cd lede && make download -j16
 
     - name: Build
       run: |
         cd lede
-        echo -e "$(nproc) thread build."
-        make -j$(nproc) V=s
+        make -j$(nproc) || make -j1 V=s
+        echo "======================="
+        echo "Space usage:"
+        echo "======================="
+        df -h
+        echo "======================="
+        du -h --max-depth=1 ./ --exclude=build_dir --exclude=bin
+        du -h --max-depth=1 ./build_dir
+        du -h --max-depth=1 ./bin
         rm -rf ./bin/targets/ipq40xx/generic/packages
 
-    - name : Upload artifact
-      uses: actions/upload-artifact@master
+    - name: Prepare artifact
+      run: |
+        cd lede
+        mkdir -p ./artifact/package
+        mkdir -p ./artifact/buildinfo
+        rm -rf $(find ./bin/targets/ -type d -name "packages")
+        cp -rf $(find ./bin/packages/ -type f -name "*.ipk") ./artifact/package/
+        cp -rf $(find ./bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") ./artifact/buildinfo/
+        
+    - name: Upload buildinfo
+      uses: actions/upload-artifact@v3
       with:
-          name: newifi3
-          path: ./bin/targets/
+        name: newifi3_buildinfo
+        path: ./lede/artifact/buildinfo/
+
+    - name: Upload package
+      uses: actions/upload-artifact@v3
+      with:
+        name: newifi3_package
+        path: ./lede/artifact/package/
+
+    - name: Upload firmware
+      uses: actions/upload-artifact@v3
+      with:
+        name: newifi3_firmware
+        path: ./lede/bin/targets/
